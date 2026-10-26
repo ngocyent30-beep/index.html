@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Study Mirror - Toán 10 & AI</title>
+  
+  <!-- Font Google Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@600;700&display=swap" rel="stylesheet">
+
+  <!-- Thư viện MediaPipe Pose của Google -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+  
+  <style>
+    :root {
+      --bg-main: #0b0f19;
+      --card-bg: rgba(23, 32, 54, 0.7);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --primary: #38bdf8;
+      --primary-glow: rgba(56, 189, 248, 0.2);
+      --accent-yellow: #facc15;
+      --success: #10b981;
+      --success-bg: rgba(16, 185, 129, 0.15);
+      --warning: #f59e0b;
+      --warning-bg: rgba(245, 158, 11, 0.15);
+      --danger: #ef4444;
+      --danger-bg: rgba(239, 68, 68, 0.2);
+      --text-title: #f8fafc;
+      --text-sub: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-main);
+      background-image: 
+        radial-gradient(at 10% 10%, rgba(56, 189, 248, 0.08) 0px, transparent 50%),
+        radial-gradient(at 90% 90%, rgba(99, 102, 241, 0.08) 0px, transparent 50%);
+      color: var(--text-title);
+      min-height: 100vh;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    header h1 {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+    }
+
+    header p.subtitle {
+      color: var(--text-sub);
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .main-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 24px;
+      justify-content: center;
+      max-width: 1300px;
+      width: 100%;
+    }
+
+    /* Video Frame */
+    .video-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 12px;
+      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .video-box {
+      position: relative;
+      width: 640px;
+      height: 480px;
+      background: #000;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    video { display: none; }
+    canvas { 
+      width: 100%; 
+      height: 100%; 
+      transform: scaleX(-1); /* Hiệu ứng gương */
+    }
+
+    /* Dashboard Panel */
+    .dashboard {
+      flex: 1;
+      min-width: 380px;
+      max-width: 580px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Status Banner */
+    .status-banner {
+      padding: 16px 20px;
+      border-radius: 14px;
+      text-align: center;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.2px;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .status-good {
+      background: var(--success-bg);
+      color: var(--success);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      box-shadow: 0 0 20px rgba(16, 185, 129, 0.15);
+    }
+
+    .status-warn {
+      background: var(--warning-bg);
+      color: var(--warning);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      box-shadow: 0 0 20px rgba(245, 158, 11, 0.15);
+    }
+
+    .status-bad {
+      background: var(--danger-bg);
+      color: var(--danger);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      box-shadow: 0 0 20px rgba(239, 68, 68, 0.2);
+      animation: pulse-red 1.5s infinite;
+    }
+
+    @keyframes pulse-red {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.8; }
+    }
+
+    /* Button Group */
+    .btn-group {
+      display: flex;
+      gap: 12px;
+    }
+
+    button {
+      flex: 1;
+      padding: 12px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-calib {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: white;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    }
+
+    .btn-calib:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(37, 99, 235, 0.4);
+    }
+
+    .btn-serial {
+      background: linear-gradient(135deg, #059669, #047857);
+      color: white;
+      box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);
+    }
+
+    .btn-serial:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(5, 150, 105, 0.4);
+    }
+
+    /* Math Cards */
+    .math-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--card-border);
+      padding: 16px;
+      border-radius: 14px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+    }
+
+    .math-card h3 {
+      margin-bottom: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 10px;
+    }
+
+    .metric-box {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      padding: 10px 12px;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .metric-label {
+      font-size: 12px;
+      color: var(--text-sub);
+    }
+
+    .val {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      color: var(--accent-yellow);
+      font-size: 15px;
+    }
+
+    @media (max-width: 768px) {
+      .video-box {
+        width: 100%;
+        height: auto;
+        aspect-ratio: 4/3;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Smart Study Mirror</h1>
+    <p class="subtitle">Ứng dụng Hệ thức lượng trong tam giác (Toán 10) & Thị giác máy tính (MediaPipe AI)</p>
+  </header>
+
+  <div class="main-container">
+    <!-- Khung Camera -->
+    <div class="video-card">
+      <div class="video-box">
+        <video id="input_video"></video>
+        <canvas id="output_canvas" width="640" height="480"></canvas>
+      </div>
+    </div>
+
+    <!-- Bảng thông số Toán học -->
+    <div class="dashboard">
+      <div id="status_banner" class="status-banner status-good">
+        Đang khởi động Camera AI...
+      </div>
+
+      <div class="btn-group">
+        <button class="btn-calib" onclick="calibratePosture()">
+          <span>📏</span> Lưu tư thế chuẩn (Calib)
+        </button>
+        <button class="btn-serial" onclick="connectSerial()">
+          <span>🔌</span> Kết nối Arduino / Micro:bit
+        </button>
+      </div>
+
+      <!-- Mục 1: Tọa độ & Cạnh -->
+      <div class="math-card">
+        <h3><span>1.</span> Tọa độ Oxy & Khoảng cách Euclid</h3>
+        <div class="metric-grid">
+          <div class="metric-box">
+            <span class="metric-label">Cạnh a = BC (Rộng vai)</span>
+            <span id="val_a" class="val">0</span>
+          </div>
+          <div class="metric-box">
+            <span class="metric-label">Cạnh b = AC (Mũi - Vai P)</span>
+            <span id="val_b" class="val">0</span>
+          </div>
+          <div class="metric-box">
+            <span class="metric-label">Cạnh c = AB (Mũi - Vai T)</span>
+            <span id="val_c" class="val">0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mục 2: Định lí Cosin -->
+      <div class="math-card">
+        <h3><span>2.</span> Định lí Cosin (Góc & Độ lệch)</h3>
+        <div class="metric-grid">
+          <div class="metric-box">
+            <span class="metric-label">Góc vai trái (Góc B)</span>
+            <span id="val_B" class="val">0°</span>
+          </div>
+          <div class="metric-box">
+            <span class="metric-label">Góc vai phải (Góc C)</span>
+            <span id="val_C" class="val">0°</span>
+          </div>
+          <div class="metric-box" style="grid-column: span 2;">
+            <span class="metric-label">Độ lệch |B - C| (Ngưỡng &lt; 15°)</span>
+            <span id="val_diffBC" class="val">0°</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mục 3: Công thức Heron & Đường cao -->
+      <div class="math-card">
+        <h3><span>3.</span> Công thức Heron & Đường cao h<sub>a</sub></h3>
+        <div class="metric-grid">
+          <div class="metric-box">
+            <span class="metric-label">Diện tích S (Heron)</span>
+            <span id="val_S" class="val">0</span>
+          </div>
+          <div class="metric-box">
+            <span class="metric-label">Đường cao h<sub>a</sub> (2S/a)</span>
+            <span id="val_ha" class="val">0</span>
+          </div>
+          <div class="metric-box">
+            <span class="metric-label">Tỉ số h<sub>a</sub> / a</span>
+            <span id="val_ratio" class="val">0</span>
+          </div>
+          <div class="metric-box">
+            <span class="metric-label">Độ suy giảm |S - S0|/S0</span>
+            <span id="val_S_drop" class="val">Chưa lưu</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const videoElement = document.getElementById('input_video');
+    const canvasElement = document.getElementById('output_canvas');
+    const canvasCtx = canvasElement.getContext('2d');
+
+    // Biến lưu trữ trạng thái chuẩn (Calibration)
+    let calib_S0 = null;
+    let calib_ratio0 = null;
+    let current_S = 0;
+    let current_ratio = 0;
+
+    // Biến cảnh báo theo thời gian & Web Serial
+    let badPostureStartTime = null;
+    let serialPort = null;
+    let serialWriter = null;
+
+    // 1. Hàm tính khoảng cách Euclid giữa 2 điểm
+    function distance(p1, p2) {
+      return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+    }
+
+    // 2. Hàm lưu tư thế ngồi chuẩn ban đầu
+    function calibratePosture() {
+      if (current_S > 0 && current_ratio > 0) {
+        calib_S0 = current_S;
+        calib_ratio0 = current_ratio;
+        alert("✅ Đã lưu tư thế chuẩn thành công!\nDiện tích chuẩn S0 = " + calib_S0.toFixed(0));
+      } else {
+        alert("⚠️ Chưa nhận diện được khuôn mặt và hai vai!");
+      }
+    }
+
+    // 3. Hàm kết nối phần cứng Arduino / ESP32 qua Web Serial API
+    async function connectSerial() {
+      if ("serial" in navigator) {
+        try {
+          serialPort = await navigator.serial.requestPort();
+          await serialPort.open({ baudRate: 9600 });
+          const textEncoder = new TextEncoderStream();
+          const writableStreamClosed = textEncoder.readable.pipeTo(serialPort.writable);
+          serialWriter = textEncoder.writable.getWriter();
+          alert("✅ Kết nối mạch phần cứng thành công!");
+        } catch (err) {
+          alert("❌ Lỗi kết nối Serial: " + err);
+        }
+      } else {
+        alert("⚠️ Trình duyệt không hỗ trợ Web Serial API. Hãy dùng Google Chrome hoặc Edge trên máy tính!");
+      }
+    }
+
+    async function sendToHardware(commandChar) {
+      if (serialWriter) {
+        try { await serialWriter.write(commandChar); } catch (e) {}
+      }
+    }
+
+    // 4. Hàm phát tiếng Bíp cảnh báo trên trình duyệt
+    function playBeep() {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.15);
+    }
+
+    // 5. Xử lý kết quả AI & Toán 10 mỗi khung hình
+    function onResults(results) {
+      canvasCtx.save();
+      canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+      canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+
+      if (results.poseLandmarks) {
+        const lm = results.poseLandmarks;
+        const W = canvasElement.width;
+        const H = canvasElement.height;
+
+        // Trích xuất 3 đỉnh tam giác: A (Mũi - 0), B (Vai trái - 11), C (Vai phải - 12)
+        const A = { x: lm[0].x * W, y: lm[0].y * H };
+        const B = { x: lm[11].x * W, y: lm[11].y * H };
+        const C = { x: lm[12].x * W, y: lm[12].y * H };
+
+        // --- TOÁN 10: BƯỚC 1 - TÍNH 3 CẠNH a, b, c ---
+        const a = distance(B, C); // Vai trái đến Vai phải
+        const b = distance(A, C); // Mũi đến Vai phải
+        const c = distance(A, B); // Mũi đến Vai trái
+
+        // --- TOÁN 10: BƯỚC 2 - ĐỊNH LÍ COSIN TÍNH GÓC B, C ---
+        const cosB = (a*a + c*c - b*b) / (2 * a * c);
+        const cosC = (a*a + b*b - c*c) / (2 * a * b);
+        const angleB = Math.acos(Math.max(-1, Math.min(1, cosB))) * (180 / Math.PI);
+        const angleC = Math.acos(Math.max(-1, Math.min(1, cosC))) * (180 / Math.PI);
+        const diffBC = Math.abs(angleB - angleC);
+
+        // --- TOÁN 10: BƯỚC 3 - CÔNG THỨC HERON & ĐƯỜNG CAO ha ---
+        const p = (a + b + c) / 2; // Nửa chu vi
+        const S = Math.sqrt(Math.max(0, p * (p - a) * (p - b) * (p - c)));
+        const ha = (2 * S) / a;
+        const ratio_ha_a = ha / a; // Tỉ số chuẩn hóa không phụ thuộc khoảng cách ngồi
+
+        current_S = S;
+        current_ratio = ratio_ha_a;
+
+        // Hiển thị số liệu lên giao diện
+        document.getElementById('val_a').innerText = a.toFixed(1) + " px";
+        document.getElementById('val_b').innerText = b.toFixed(1) + " px";
+        document.getElementById('val_c').innerText = c.toFixed(1) + " px";
+
+        document.getElementById('val_B').innerText = angleB.toFixed(1) + "°";
+        document.getElementById('val_C').innerText = angleC.toFixed(1) + "°";
+        document.getElementById('val_diffBC').innerText = diffBC.toFixed(1) + "°";
+
+        document.getElementById('val_S').innerText = S.toFixed(0) + " px²";
+        document.getElementById('val_ha').innerText = ha.toFixed(1) + " px";
+        document.getElementById('val_ratio').innerText = ratio_ha_a.toFixed(2);
+
+        // --- ĐÁNH GIÁ TƯ THẾ ---
+        let errors = [];
+        
+        // Kiểm tra lệch vai / nghiêng đầu (|B - C| > 15 độ)
+        if (diffBC > 15) {
+          errors.push("Nghiêng đầu / Lệch vai");
+        }
+
+        // Kiểm tra cúi gằm mặt / rụt cổ
+        if (calib_S0 !== null) {
+          const sDrop = ((calib_S0 - S) / calib_S0) * 100;
+          document.getElementById('val_S_drop').innerText = sDrop.toFixed(1) + "%";
+          if (sDrop > 20 || ratio_ha_a < calib_ratio0 * 0.8) {
+            errors.push("Cúi gằm mặt / Gù lưng");
+          }
+        } else {
+          // Ngưỡng mặc định khi chưa bấm nút Calibration
+          if (ratio_ha_a < 0.55) {
+            errors.push("Cúi gằm mặt / Rụt cổ");
+          }
+        }
+
+        // Vẽ tam giác ABC và đường cao ha lên màn hình Gương
+        const isBad = errors.length > 0;
+        const strokeColor = isBad ? "#ef4444" : "#10b981";
+
+        canvasCtx.beginPath();
+        canvasCtx.moveTo(A.x, A.y);
+        canvasCtx.lineTo(B.x, B.y);
+        canvasCtx.lineTo(C.x, C.y);
+        canvasCtx.closePath();
+        canvasCtx.lineWidth = 4;
+        canvasCtx.strokeStyle = strokeColor;
+        canvasCtx.stroke();
+        canvasCtx.fillStyle = isBad ? "rgba(239, 68, 68, 0.25)" : "rgba(16, 185, 129, 0.25)";
+        canvasCtx.fill();
+
+        // Vẽ 3 đỉnh A, B, C
+        [A, B, C].forEach(pt => {
+          canvasCtx.beginPath();
+          canvasCtx.arc(pt.x, pt.y, 7, 0, 2 * Math.PI);
+          canvasCtx.fillStyle = "#facc15";
+          canvasCtx.fill();
+        });
+
+        // Cập nhật trạng thái & gửi tín hiệu phần cứng
+        const banner = document.getElementById('status_banner');
+        if (!isBad) {
+          badPostureStartTime = null;
+          banner.className = "status-banner status-good";
+          banner.innerText = "✅ TƯ THẾ CHUẨN - Hãy duy trì nhé!";
+          sendToHardware('G'); // Đèn Xanh (Green)
+        } else {
+          if (!badPostureStartTime) badPostureStartTime = Date.now();
+          const elapsedSec = (Date.now() - badPostureStartTime) / 1000;
+
+          if (elapsedSec > 5) { // Ngồi sai liên tục quá 5 giây -> Báo động Đỏ
+            banner.className = "status-banner status-bad";
+            banner.innerText = "🚨 CẢNH BÁO: " + errors.join(" & ") + " (" + elapsedSec.toFixed(0) + "s)";
+            sendToHardware('R'); // Đèn Đỏ + Còi (Red)
+            if (Math.floor(elapsedSec * 10) % 20 === 0) playBeep();
+          } else {
+            banner.className = "status-banner status-warn";
+            banner.innerText = "⚠️ NHẮC NHỞ: " + errors.join(" & ");
+            sendToHardware('Y'); // Đèn Vàng (Yellow)
+          }
+        }
+      }
+      canvasCtx.restore();
+    }
+
+    // Khởi tạo MediaPipe Pose
+    const pose = new Pose({
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+    });
+    pose.setOptions({
+      modelComplexity: 1,
+      smoothLandmarks: true,
+      minDetectionConfidence: 0.5,
+      minTrackingConfidence: 0.5
+    });
+    pose.onResults(onResults);
+
+    // Bật Camera
+    const camera = new Camera(videoElement, {
+      onFrame: async () => { await pose.send({image: videoElement}); },
+      width: 640,
+      height: 480
+    });
+    camera.start();
+  </script>
+</body>
+</html>
